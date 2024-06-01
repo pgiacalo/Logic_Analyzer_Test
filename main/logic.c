@@ -2,8 +2,19 @@
 #include "freertos/task.h"
 #include "driver/i2c.h"
 #include "driver/i2s.h"
+#include "driver/gpio.h"  // Ensure this include is present
 #include "esp_log.h"
 #include "math.h"
+
+
+#define BUTTON_I2C_GPIO             0   // GPIO for I2C trigger button
+#define BUTTON_I2S_GPIO             2   // GPIO for I2S trigger button
+
+#define I2S_BCLK_PIN                27  // Bit Clock Pin
+#define I2S_LRCLK_PIN               26  // Left Right Clock Pin
+#define I2S_DATA_OUT_PIN            25  // Data Output Pin
+#define I2S_NUM                     I2S_NUM_0
+#define SAMPLE_RATE                 44100
 
 #define I2C_MASTER_SCL_IO           22  // SCL Pin
 #define I2C_MASTER_SDA_IO           21  // SDA Pin
@@ -13,11 +24,21 @@
 #define I2C_MASTER_RX_BUF_DISABLE   0
 #define MPU9250_ADDRESS             0x68  // Device address of MPU9250
 
-#define I2S_NUM                     I2S_NUM_0
-#define SAMPLE_RATE                 44100
 #define PI                          3.14159
 
 static const char *TAG = "ESP32_I2C_I2S";
+
+void button_init() {
+    // Reset and configure I2C button GPIO
+    gpio_reset_pin(BUTTON_I2C_GPIO);
+    gpio_set_direction(BUTTON_I2C_GPIO, GPIO_MODE_INPUT);
+    gpio_set_pull_mode(BUTTON_I2C_GPIO, GPIO_PULLUP_ONLY);
+
+    // Reset and configure I2S button GPIO
+    gpio_reset_pin(BUTTON_I2S_GPIO);
+    gpio_set_direction(BUTTON_I2S_GPIO, GPIO_MODE_INPUT);
+    gpio_set_pull_mode(BUTTON_I2S_GPIO, GPIO_PULLUP_ONLY);
+}
 
 // Initialize I2C for MPU9250
 void i2c_master_init() {
@@ -49,9 +70,9 @@ void i2s_config_init() {
         .tx_desc_auto_clear = true
     };
     i2s_pin_config_t pin_config = {
-        .bck_io_num = 27,
-        .ws_io_num = 26,
-        .data_out_num = 25,
+        .bck_io_num = I2S_BCLK_PIN,    // Use defined constant
+        .ws_io_num = I2S_LRCLK_PIN,    // Use defined constant
+        .data_out_num = I2S_DATA_OUT_PIN,  // Use defined constant
         .data_in_num = I2S_PIN_NO_CHANGE
     };
     ESP_ERROR_CHECK(i2s_driver_install(I2S_NUM, &i2s_config, 0, NULL));
@@ -77,34 +98,48 @@ void app_main() {
     ESP_LOGI(TAG, "Initializing I2C and I2S");
     i2c_master_init();
     i2s_config_init();
+    button_init();
 
-    // Read data from MPU9250 and play tones
-    uint8_t data[14];
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (MPU9250_ADDRESS << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write_byte(cmd, 0x3B, true); // Start with register 0x3B (ACCEL_XOUT_H)
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (MPU9250_ADDRESS << 1) | I2C_MASTER_READ, true);
-    i2c_master_read(cmd, data, 14, I2C_MASTER_LAST_NACK);
-    i2c_master_stop(cmd);
-    esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 1000 / portTICK_PERIOD_MS);
-    i2c_cmd_link_delete(cmd);
-    if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "MPU9250 Read Successful");
-    } else {
-        ESP_LOGE(TAG, "Failed to read from MPU9250");
+    while (1) {
+        // Check if I2C button is pressed
+        if (gpio_get_level(BUTTON_I2C_GPIO) == 0) {  // Assuming active low button
+            ESP_LOGI(TAG, "Button for I2C pressed");
+            uint8_t data[14];
+            i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+            i2c_master_start(cmd);
+            i2c_master_write_byte(cmd, (MPU9250_ADDRESS << 1) | I2C_MASTER_WRITE, true);
+            i2c_master_write_byte(cmd, 0x3B, true);  // Start with register 0x3B (ACCEL_XOUT_H)
+            i2c_master_start(cmd);
+            i2c_master_write_byte(cmd, (MPU9250_ADDRESS << 1) | I2C_MASTER_READ, true);
+            i2c_master_read(cmd, data, 14, I2C_MASTER_LAST_NACK);
+            i2c_master_stop(cmd);
+            esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 1000 / portTICK_PERIOD_MS);
+            i2c_cmd_link_delete(cmd);
+            if (ret == ESP_OK) {
+                ESP_LOGI(TAG, "MPU9250 Read Successful");
+            } else {
+                ESP_LOGE(TAG, "Failed to read from MPU9250");
+            }
+            vTaskDelay(pdMS_TO_TICKS(500));  // Debounce delay
+        }
+
+        // Check if I2S button is pressed
+        if (gpio_get_level(BUTTON_I2S_GPIO) == 0) {  // Assuming active low button
+            ESP_LOGI(TAG, "Button for I2S pressed");
+            play_tone(261.63, 500); // C4
+            play_tone(293.66, 500); // D4
+            play_tone(329.63, 500); // E4
+            play_tone(392.00, 500); // G4
+            play_tone(440.00, 500); // A4
+            vTaskDelay(pdMS_TO_TICKS(500));  // Debounce delay
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(100));  // Polling delay
     }
-
-    // Play simple melody
-    play_tone(261.63, 500); // C4
-    play_tone(293.66, 500); // D4
-    play_tone(329.63, 500); // E4
-    play_tone(392.00, 500); // G4
-    play_tone(440.00, 500); // A4
 
     // Clean up
     i2s_driver_uninstall(I2S_NUM);
     i2c_driver_delete(I2C_MASTER_NUM);
 }
+
 
