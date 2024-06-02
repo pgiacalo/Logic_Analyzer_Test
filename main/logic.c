@@ -18,19 +18,19 @@
 
 // UART configuration (Yellow Probe)
 #define UART_NUM 	UART_NUM_1
-#define TXD_PIN 	GPIO_NUM_4 	//Logic Analyzer Channel 0 (Yellow Wire)
-#define RXD_PIN 	GPIO_NUM_5	//Logic Analyzer Channel NONE (since it's loopback)
+#define TXD_PIN 	GPIO_NUM_4 			//Logic Analyzer Channel 0 (Yellow Wire)
+#define RXD_PIN 	GPIO_NUM_5			//Logic Analyzer Channel NONE (since it's loopback)
 
 // SPI configuration (Blue Probes)
 #define MY_SPI_HOST 	HSPI_HOST
-#define PIN_NUM_MISO 	GPIO_NUM_19	//Logic Analyzer Channel 1 (Blue Wire)
-#define PIN_NUM_MOSI 	GPIO_NUM_23	//Logic Analyzer Channel NONE (since it's loopback)
-#define PIN_NUM_CLK  	GPIO_NUM_18 //Logic Analyzer Channel 2 (White Wire)
-#define SPI_MAX_TRANSFER_SIZE 4096  //Maximum size for SPI transfer in bytes
+#define PIN_NUM_MISO 	GPIO_NUM_19		//Logic Analyzer Channel 1 (Blue Wire)
+#define PIN_NUM_MOSI 	GPIO_NUM_23		//Logic Analyzer Channel NONE (since it's loopback)
+#define PIN_NUM_CLK  	GPIO_NUM_18 	//Logic Analyzer Channel 2 (White Wire)
+#define SPI_MAX_TRANSFER_SIZE 4096  	//Maximum size for SPI transfer in bytes
 
 // CAN configuration (RED Probe)
-#define TX_GPIO_NUM 	21	//Logic Analyzer Channel 3 (Green Wire)
-#define RX_GPIO_NUM 	22	//Logic Analyzer Channel NONE (since it's loopback)
+#define TX_GPIO_NUM 	21				//Logic Analyzer Channel 3 (Green Wire)
+#define RX_GPIO_NUM 	22				//Logic Analyzer Channel NONE (since it's loopback)
 
 // Function Prototypes
 void init_uart();
